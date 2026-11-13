@@ -1,0 +1,45 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  background: #f5f6f8;
+  color: #1f2937;
+}
+.app { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+header h1 { margin: 0; font-size: 28px; letter-spacing: -0.5px; }
+header p { margin: 4px 0 20px; color: #6b7280; }
+.card { background: #fff; border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.card h2 { margin: 0 0 12px; font-size: 17px; }
+.drop {
+  border: 2px dashed #cbd5e1; border-radius: 12px; padding: 28px 16px; text-align: center;
+  color: #475569; cursor: pointer; transition: .15s;
+}
+.drop:hover, .drop.over { border-color: #2563eb; background: #eff6ff; }
+.toggle { display: flex; gap: 8px; align-items: center; margin-top: 12px; cursor: pointer; }
+.status { margin-top: 10px; font-size: 14px; color: #475569; }
+.status.working { color: #2563eb; }
+.status.ready { color: #059669; }
+.status.error { color: #dc2626; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+figure { margin: 0; }
+figcaption { font-size: 14px; color: #6b7280; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+.mini { font-size: 13px; cursor: pointer; }
+.frame {
+  border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.frame img, .frame canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+.empty { color: #9ca3af; font-size: 14px; }
+.slider { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.slider label { white-space: nowrap; font-weight: 600; }
+.slider input[type=range] { flex: 1; }
+.slider input[type=number] { width: 80px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
+.hint { font-size: 13px; color: #6b7280; margin: 8px 0 0; }
+button.primary {
+  background: #2563eb; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 16px; cursor: pointer;
+}
+button.primary:disabled { background: #93c5fd; cursor: default; }
+@media (max-width: 767px) {
+  .compare { grid-template-columns: 1fr; }
+  header h1 { font-size: 24px; }
+}
