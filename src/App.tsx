@@ -30,6 +30,9 @@ export default function App() {
   const [showEdges, setShowEdges] = useState(false);
   const [gifRatio, setGifRatio] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // 휴대폰: GIF를 만든 뒤 "저장/공유" 버튼을 한 번 더 눌러 사진첩 등에 저장한다
+  const [readyGif, setReadyGif] = useState<File | null>(null);
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
   const fgCache = useRef<{ file: File; fg: ImageBitmap } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -145,20 +148,43 @@ export default function App() {
     cv.getContext('2d')!.putImageData(result.edgePreview, 0, 0);
   }, [result, showEdges]);
 
+  const saveFile = (file: File) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  // 휴대폰에서는 공유 창(사진첩 저장·메신저 전송)을 띄우고, 안 되면 일반 다운로드
+  const shareOrSave = async (file: File) => {
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'TonTonjung' });
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return; // 사용자가 닫음
+      }
+    }
+    saveFile(file);
+  };
+
   const downloadGif = async () => {
     if (!scene) return;
     setGifRatio(0);
+    setReadyGif(null);
     try {
       const blob = await makeGif(scene, setGifRatio);
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `TonTonjung_n${scene.n}_${stamp()}.gif`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      const file = new File([blob], `TonTonjung_n${scene.n}_${stamp()}.gif`, { type: 'image/gif' });
+      if (isTouch) setReadyGif(file);
+      else saveFile(file);
     } finally {
       setGifRatio(null);
     }
   };
+
+  // 설정이 바뀌면 만들어 둔 GIF는 버린다
+  useEffect(() => setReadyGif(null), [scene]);
 
   const setNSafe = (v: number) => {
     if (Number.isNaN(v)) return;
@@ -242,10 +268,24 @@ export default function App() {
 
       <section className="card">
         <h2>③ 내보내기</h2>
-        <button className="primary" disabled={!scene || gifRatio !== null} onClick={downloadGif} data-testid="gif">
-          {gifRatio === null ? 'GIF 다운로드 (약 5초)' : `GIF 만드는 중… ${Math.round(gifRatio * 100)}%`}
-        </button>
+        <div className="buttons">
+          <button className="primary" disabled={!scene || gifRatio !== null} onClick={downloadGif} data-testid="gif">
+            {gifRatio !== null
+              ? `GIF 만드는 중… ${Math.round(gifRatio * 100)}%`
+              : isTouch
+                ? 'GIF 만들기 (약 5초)'
+                : 'GIF 다운로드 (약 5초)'}
+          </button>
+          {readyGif && (
+            <button className="primary save" onClick={() => shareOrSave(readyGif)} data-testid="save">
+              GIF 저장·공유하기
+            </button>
+          )}
+        </div>
         <p className="hint">4초 동안 그리고, 마지막 1초는 완성된 그림에서 멈춰요. 사진은 내 브라우저 안에서만 처리되고 어디에도 저장되지 않아요.</p>
+        {isTouch && (
+          <p className="hint">휴대폰: "GIF 만들기" 후 "GIF 저장·공유하기"를 누르면 사진첩에 저장하거나 메신저로 보낼 수 있어요. 처음 한 번은 AI 모델(약 60MB)을 내려받으니 와이파이에서 쓰는 걸 추천해요.</p>
+        )}
       </section>
     </div>
   );

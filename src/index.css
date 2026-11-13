@@ -38,6 +38,13 @@ figcaption { font-size: 14px; color: #6b7280; margin-bottom: 6px; display: flex;
 button.primary {
   background: #2563eb; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 16px; cursor: pointer;
 }
+.buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+button.primary.save { background: #059669; }
+@media (max-width: 767px) {
+  .buttons button { flex: 1 1 100%; padding: 14px 16px; }
+  .slider input[type=range] { height: 28px; }
+  .card { padding: 16px 14px; }
+}
 button.primary:disabled { background: #93c5fd; cursor: default; }
 @media (max-width: 767px) {
   .compare { grid-template-columns: 1fr; }
