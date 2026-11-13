@@ -21,7 +21,7 @@ export function toGray(rgba: Uint8ClampedArray, w: number, h: number, mask?: Uin
   return { w, h, data };
 }
 
-function blur(src: Gray): Float32Array {
+export function blur(src: Gray): Float32Array {
   // 5x5 가우시안(sigma≈1.4)을 가로·세로로 나눠 적용
   const k = [2, 4, 5, 4, 2];
   const ks = 17;
@@ -175,7 +175,36 @@ export function thin(img: Uint8Array, w: number, h: number): Uint8Array {
  * 선화는 선 자체가, 사진은 어두운 경계가 잡힌다. 두꺼운 선도 한 덩어리로 잡혀서
  * 세선화하면 가운데 한 줄만 남는다(양쪽 두 줄 문제 없음).
  */
-export function inkLines(src: Gray, radius: number, c: number): Uint8Array {
+export const K_PHOTO = 1.0;
+
+/**
+ * 실사 사진인지 판단: 선화·일러스트는 색이 고르게 칠해진 평평한 면이 많고,
+ * 실사 사진은 털·결·노이즈 때문에 평평한 곳이 적다.
+ */
+export function isPhoto(src: Gray, mask?: Uint8Array): { photo: boolean; flat: number } {
+  const { w, h, data } = src;
+  let flat = 0, total = 0;
+  for (let y = 0; y < h - 1; y += 2)
+    for (let x = 0; x < w - 1; x += 2) {
+      const i = y * w + x;
+      if (mask && mask[i] < 128) continue;
+      total++;
+      if (Math.abs(data[i] - data[i + 1]) <= 2 && Math.abs(data[i] - data[i + w]) <= 2) flat++;
+    }
+  const r = total ? flat / total : 1;
+  return { photo: r < 0.5, flat: r };
+}
+
+/** 주변보다 어두운 정도(diff)의 상위 10% 값 */
+function p90Of(diff: Float32Array, mask?: Uint8Array) {
+  const vals: number[] = [];
+  for (let i = 0; i < diff.length; i += 3) if (!mask || mask[i] >= 128) vals.push(Math.abs(diff[i]));
+  vals.sort((a, b) => a - b);
+  return vals[Math.floor(vals.length * 0.9)] ?? 0;
+}
+
+/** c: 'line'=선화용 고정 기준, 'photo'=결이 많을수록 기준을 높임 */
+export function inkLines(src: Gray, radius: number, mode: 'line' | 'photo', mask?: Uint8Array): Uint8Array {
   const { w, h, data } = src;
   // 적분 영상으로 주변 평균을 빠르게 계산
   const integ = new Float64Array((w + 1) * (h + 1));
@@ -186,16 +215,18 @@ export function inkLines(src: Gray, radius: number, c: number): Uint8Array {
       integ[(y + 1) * (w + 1) + x + 1] = integ[y * (w + 1) + x + 1] + row;
     }
   }
-  const out = new Uint8Array(w * h);
+  const diff = new Float32Array(w * h); // 주변 평균보다 얼마나 어두운지
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const x0 = Math.max(0, x - radius), x1 = Math.min(w, x + radius + 1);
       const y0 = Math.max(0, y - radius), y1 = Math.min(h, y + radius + 1);
       const sum =
         integ[y1 * (w + 1) + x1] - integ[y0 * (w + 1) + x1] - integ[y1 * (w + 1) + x0] + integ[y0 * (w + 1) + x0];
-      const mean = sum / ((x1 - x0) * (y1 - y0));
-      if (data[y * w + x] < mean - c) out[y * w + x] = 1;
+      diff[y * w + x] = sum / ((x1 - x0) * (y1 - y0)) - data[y * w + x];
     }
+  const c = mode === 'photo' ? Math.max(14, p90Of(diff, mask) * K_PHOTO) : 12;
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (diff[i] > c) out[i] = 1;
   return out;
 }
 
@@ -224,5 +255,22 @@ export function removeSpecks(img: Uint8Array, w: number, h: number, minSize: num
     }
     if (comp.length < minSize) for (const j of comp) out[j] = 0;
   }
+  return out;
+}
+
+/** 덩어리의 테두리만 남긴다(눈·코처럼 꽉 찬 어두운 부분을 동그란 윤곽선으로). 얇은 선은 그대로 남는다. */
+export function outlineBlobs(img: Uint8Array, w: number, h: number, depth = 2): Uint8Array {
+  let inner = img;
+  for (let d = 0; d < depth; d++) {
+    const next = new Uint8Array(w * h);
+    for (let y = 1; y < h - 1; y++)
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        if (inner[i] && inner[i - 1] && inner[i + 1] && inner[i - w] && inner[i + w]) next[i] = 1;
+      }
+    inner = next;
+  }
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (img[i] && !inner[i]) out[i] = 1;
   return out;
 }
